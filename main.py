@@ -1,9 +1,9 @@
+import os
 from fastapi import FastAPI, Request
 from telegram import Update, Bot
 from telegram.ext import Application, CommandHandler, ContextTypes
 from gtts import gTTS
 from pydub import AudioSegment
-import os
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_DOMAIN = os.getenv("WEBHOOK_DOMAIN")
@@ -13,10 +13,10 @@ WEBHOOK_URL = WEBHOOK_DOMAIN + WEBHOOK_PATH
 app = FastAPI()
 bot = Bot(BOT_TOKEN)
 
-# Buat PTB Application tanpa start()
+# Buat Telegram Application
 application = Application.builder().token(BOT_TOKEN).build()
 
-# Handler TTS
+# ----------------- HANDLER -----------------
 async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg:
@@ -36,16 +36,18 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 application.add_handler(CommandHandler("suara", suara))
 
-# Set webhook saat startup
+# ----------------- STARTUP -----------------
 @app.on_event("startup")
 async def startup():
+    # Initialize application sebelum dipakai process_update
+    await application.initialize()
     await bot.set_webhook(WEBHOOK_URL)
     print(f"✅ Webhook set to {WEBHOOK_URL}")
 
-# Webhook endpoint
+# ----------------- WEBHOOK -----------------
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request):
     data = await request.json()
     update = Update.de_json(data, bot)
-    await application.process_update(update)  # cukup ini, tidak perlu start()
+    await application.process_update(update)  # cukup ini
     return {"ok": True}
