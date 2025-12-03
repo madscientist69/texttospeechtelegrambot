@@ -1,5 +1,4 @@
 import os
-import asyncio
 from fastapi import FastAPI, Request
 from telegram import Bot, Update
 from telegram.ext import Application, CommandHandler, ContextTypes
@@ -7,12 +6,10 @@ from gtts import gTTS
 from pydub import AudioSegment
 from dotenv import load_dotenv
 
-# ============================
-# Load environment variables
-# ============================
 load_dotenv()
+
 TOKEN = os.getenv("BOT_TOKEN")
-DOMAIN = os.getenv("WEBHOOK_DOMAIN")  # must be HTTPS after deploy
+DOMAIN = os.getenv("WEBHOOK_DOMAIN")  # HTTPS after deploy
 WEBHOOK_PATH = f"/webhook/{TOKEN}"
 WEBHOOK_URL = None
 
@@ -21,35 +18,23 @@ if DOMAIN and DOMAIN.startswith("https://"):
 else:
     print("⚠ WEBHOOK_DOMAIN belum valid, webhook tidak akan di-set otomatis.")
 
-# ============================
-# Initialize FastAPI and Bot
-# ============================
 app = FastAPI()
 bot = Bot(TOKEN)
 
-# ============================
-# Helper: Generate Voice Note
-# ============================
 async def generate_voice(text: str) -> str:
-    """Convert text to Telegram voice note (.ogg)"""
     tts = gTTS(text=text, lang="id")
     tts.save("tts.mp3")
     sound = AudioSegment.from_mp3("tts.mp3")
     sound.export("tts.ogg", format="ogg", codec="opus")
     return "tts.ogg"
 
-# ============================
-# Command Handler
-# ============================
 async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg:
         return
 
-    # 1️⃣ Reply ke pesan
     if msg.reply_to_message and msg.reply_to_message.text:
         text = msg.reply_to_message.text
-    # 2️⃣ Argumen command
     elif context.args:
         text = " ".join(context.args)
     else:
@@ -64,9 +49,6 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ============================
 application = Application.builder().token(TOKEN).build()
 application.add_handler(CommandHandler("suara", suara))
-
-# Explicitly initialize (important for webhook)
-asyncio.get_event_loop().run_until_complete(application.initialize())
 
 # ============================
 # FastAPI Webhook Route
