@@ -1,7 +1,0 @@
-fastapi
-uvicorn
-python-telegram-bot==20.4
-gTTS
-pydub
-ffmpeg-python
-python-dotenv
