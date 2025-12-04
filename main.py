@@ -80,36 +80,28 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Gunakan /suara untuk Text-to-Speech."
     )
 
-# ----------- REVISED: /setrewards langsung dalam 1 pesan -----------
+# -------------------- /setrewards --------------------
 async def setrewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     db = load_db()
 
-    raw = update.message.text.replace("/setrewards", "", 1).strip()
+    # Ambil semua baris pesan
+    lines = update.message.text.split("\n")
 
-    if not raw:
+    # Abaikan baris pertama (perintah /setrewards)
+    lines = lines[1:]
+
+    if not lines:
         return await update.message.reply_text(
-            "❗ Masukkan daftar reward setelah perintah.\n\n"
-            "Contoh:\n"
-            "/setrewards\n"
-            "snack kecil - 3\n"
-            "bingxue - 9\n"
-            "e-book - 18\n"
-            "buku fisik - 21\n"
-            "member gym - 24\n"
-            "satu game di steam - 27\n"
-            "arduino starter kit - 33"
+            "❗ Masukkan daftar reward setelah perintah."
         )
 
-    lines = raw.split("\n")
     rewards = []
-
     for line in lines:
         if "-" not in line:
             continue
 
         name, pts = line.split("-", 1)
-
         try:
             pts = int(pts.strip())
         except:
@@ -125,6 +117,7 @@ async def setrewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     await update.message.reply_text("✔ Reward list berhasil disimpan!")
 
+# -------------------- Reward Commands --------------------
 async def rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = load_db()
     user_data = db.get(str(update.message.from_user.id))
@@ -184,21 +177,18 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     idx = int(context.args[0]) - 1
     user_data = db[str(user.id)]
-    rewards = user_data["rewards"]
+    rewards_list = user_data["rewards"]
 
-    if idx < 0 or idx >= len(rewards):
+    if idx < 0 or idx >= len(rewards_list):
         return await update.message.reply_text("Reward tidak ditemukan.")
 
-    reward = rewards[idx]
+    reward = rewards_list[idx]
 
     if user_data["points"] < reward["points"]:
         return await update.message.reply_text("Poin tidak cukup.")
 
     user_data["points"] -= reward["points"]
-    user_data["history"].append(
-        f"Redeem: {reward['name']} (-{reward['points']})"
-    )
-
+    user_data["history"].append(f"Redeem: {reward['name']} (-{reward['points']})")
     save_db(db)
 
     await update.message.reply_text(
@@ -206,21 +196,16 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
-# ----------- UPDATED HELP -----------
+# -------------------- Help --------------------
 async def helpcmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "/start - mulai\n"
-        "/setrewards <langsung kirim list reward>\n"
-        "  contoh:\n"
-        "  /setrewards\n"
-        "  snack kecil - 3\n"
-        "  bingxue - 9\n"
-        "  e-book - 18\n"
+        "/setrewards - set daftar reward langsung dalam 1 pesan (multi-line)\n"
         "/rewards - lihat daftar reward\n"
         "/points - lihat poin\n"
-        "/add <tugas> <poin>\n"
+        "/add <tugas> <poin> - tambah poin\n"
         "/history - riwayat\n"
-        "/redeem <no>\n"
+        "/redeem <no> - tukar reward\n"
         "/suara <teks> - text to speech"
     )
 
