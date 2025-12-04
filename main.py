@@ -3,8 +3,7 @@ import json
 from fastapi import FastAPI, Request
 from telegram import Update, Bot
 from telegram.ext import (
-    Application, CommandHandler, ContextTypes,
-    MessageHandler, filters
+    Application, CommandHandler, ContextTypes
 )
 from gtts import gTTS
 
@@ -81,39 +80,50 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Gunakan /suara untuk Text-to-Speech."
     )
 
+# ----------- REVISED: /setrewards langsung dalam 1 pesan -----------
 async def setrewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = update.message.text
-
-    # Pisahkan baris pertama (perintah) dengan isi reward
-    lines = text.split("\n")[1:]  # semua baris setelah baris 1 = isi reward
-
-    if not lines:
-        return await update.message.reply_text(
-            "Kirim seperti ini:\n"
-            "/setrewards\n"
-            "snack kecil - 3\n"
-            "bingxue - 9\n"
-            "e-book - 18"
-        )
-
     user = update.message.from_user
     db = load_db()
 
+    raw = update.message.text.replace("/setrewards", "", 1).strip()
+
+    if not raw:
+        return await update.message.reply_text(
+            "❗ Masukkan daftar reward setelah perintah.\n\n"
+            "Contoh:\n"
+            "/setrewards\n"
+            "snack kecil - 3\n"
+            "bingxue - 9\n"
+            "e-book - 18\n"
+            "buku fisik - 21\n"
+            "member gym - 24\n"
+            "satu game di steam - 27\n"
+            "arduino starter kit - 33"
+        )
+
+    lines = raw.split("\n")
     rewards = []
+
     for line in lines:
         if "-" not in line:
             continue
+
         name, pts = line.split("-", 1)
+
+        try:
+            pts = int(pts.strip())
+        except:
+            continue
+
         rewards.append({
             "name": name.strip(),
-            "points": int(pts.strip())
+            "points": pts
         })
 
     db[str(user.id)]["rewards"] = rewards
     save_db(db)
 
-    await update.message.reply_text("🎁 Reward list berhasil disimpan!")
-    
+    await update.message.reply_text("✔ Reward list berhasil disimpan!")
 
 async def rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = load_db()
@@ -148,9 +158,7 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pts = int(context.args[-1])
 
     db[str(user.id)]["points"] += pts
-    db[str(user.id)]["history"].append(
-        f"Selesai: {task_name} (+{pts})"
-    )
+    db[str(user.id)]["history"].append(f"Selesai: {task_name} (+{pts})")
     save_db(db)
 
     await update.message.reply_text(
@@ -190,6 +198,7 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_data["history"].append(
         f"Redeem: {reward['name']} (-{reward['points']})"
     )
+
     save_db(db)
 
     await update.message.reply_text(
@@ -197,21 +206,22 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
         parse_mode="Markdown"
     )
 
+# ----------- UPDATED HELP -----------
 async def helpcmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "/start - mulai bot\n"
-        "/setrewards - set reward langsung dalam satu pesan.\n"
-        "   Contoh:\n"
-        "   /setrewards\n"
-        "   snack kecil - 3\n"
-        "   bingxue - 9\n"
-        "   e-book - 18\n\n"
+        "/start - mulai\n"
+        "/setrewards <langsung kirim list reward>\n"
+        "  contoh:\n"
+        "  /setrewards\n"
+        "  snack kecil - 3\n"
+        "  bingxue - 9\n"
+        "  e-book - 18\n"
         "/rewards - lihat daftar reward\n"
-        "/points - lihat jumlah poin\n"
-        "/add <tugas> <poin> - tambah poin\n"
-        "/history - lihat riwayat\n"
-        "/redeem <nomor> - tukarkan reward\n"
-        "/suara <teks> - ubah teks menjadi suara (TTS)"
+        "/points - lihat poin\n"
+        "/add <tugas> <poin>\n"
+        "/history - riwayat\n"
+        "/redeem <no>\n"
+        "/suara <teks> - text to speech"
     )
 
 # ==============================================================
@@ -230,11 +240,8 @@ application.add_handler(CommandHandler("help", helpcmd))
 # TTS
 application.add_handler(CommandHandler("suara", suara))
 
-# Text biasa
-application.add_handler(MessageHandler(filters.TEXT, message_handler))
-
 # ==============================================================
-#                       STARTUP WEBHOOK (TTS STYLE)
+#                       STARTUP WEBHOOK
 # ==============================================================
 
 @app.on_event("startup")
