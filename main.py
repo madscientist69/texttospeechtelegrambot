@@ -5,7 +5,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from gtts import gTTS
 
 BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_DOMAIN = os.getenv("WEBHOOK_DOMAIN")  # misal: https://tts-bot-production-68e7.up.railway.app
+WEBHOOK_DOMAIN = os.getenv("WEBHOOK_DOMAIN")  
 WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = WEBHOOK_DOMAIN + WEBHOOK_PATH
 
