@@ -36,7 +36,6 @@ def save_db(data):
 # ==============================================================
 #                            TTS
 # ==============================================================
-
 async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
     msg = update.message
     if not msg:
@@ -61,23 +60,19 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================================================
 #                        REWARD & TASK
 # ==============================================================
-
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     db = load_db()
 
     if str(user.id) not in db:
-        db[str(user.id)] = {
-            "points": 0,
-            "rewards": [],
-            "history": []
-        }
+        db[str(user.id)] = {"points": 0, "rewards": [], "history": []}
         save_db(db)
 
     await update.message.reply_text(
         "Selamat datang!\n"
         "Gunakan /setrewards untuk mengisi daftar reward.\n"
-        "Gunakan /suara untuk Text-to-Speech."
+        "Gunakan /suara untuk Text-to-Speech.\n"
+        "Gunakan /help untuk melihat semua perintah."
     )
 
 # -------------------- /setrewards --------------------
@@ -85,37 +80,48 @@ async def setrewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user = update.message.from_user
     db = load_db()
 
-    # Ambil semua baris pesan
-    lines = update.message.text.split("\n")
+    # Pastikan user ada di DB
+    if str(user.id) not in db:
+        db[str(user.id)] = {"points": 0, "rewards": [], "history": []}
 
-    # Abaikan baris pertama (perintah /setrewards)
-    lines = lines[1:]
+    # Ambil semua baris pesan
+    lines = update.message.text.split("\n")[1:]  # abaikan baris /setrewards
 
     if not lines:
         return await update.message.reply_text(
-            "❗ Masukkan daftar reward setelah perintah."
+            "❗ Masukkan daftar reward setelah perintah.\nFormat:\nNama Reward - Poin"
         )
 
     rewards = []
-    for line in lines:
-        if "-" not in line:
-            continue
+    invalid_lines = []
 
+    for i, line in enumerate(lines, start=2):
+        if "-" not in line:
+            invalid_lines.append((i, line))
+            continue
         name, pts = line.split("-", 1)
         try:
             pts = int(pts.strip())
         except:
+            invalid_lines.append((i, line))
             continue
+        rewards.append({"name": name.strip(), "points": pts})
 
-        rewards.append({
-            "name": name.strip(),
-            "points": pts
-        })
+    if not rewards:
+        return await update.message.reply_text(
+            "❌ Tidak ada reward valid. Pastikan format 'Nama Reward - Poin'."
+        )
 
     db[str(user.id)]["rewards"] = rewards
     save_db(db)
 
-    await update.message.reply_text("✔ Reward list berhasil disimpan!")
+    msg = "✔ Reward list berhasil disimpan!"
+    if invalid_lines:
+        msg += "\n⚠ Baris berikut diabaikan karena format salah:\n"
+        for i, line in invalid_lines:
+            msg += f"Baris {i}: {line}\n"
+
+    await update.message.reply_text(msg)
 
 # -------------------- Reward Commands --------------------
 async def rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -201,6 +207,7 @@ async def helpcmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "/start - mulai\n"
         "/setrewards - set daftar reward langsung dalam 1 pesan (multi-line)\n"
+        "Format setiap baris: Nama Reward - Poin\n"
         "/rewards - lihat daftar reward\n"
         "/points - lihat poin\n"
         "/add <tugas> <poin> - tambah poin\n"
@@ -212,7 +219,6 @@ async def helpcmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # ==============================================================
 #                      REGISTER HANDLER
 # ==============================================================
-
 application.add_handler(CommandHandler("start", start))
 application.add_handler(CommandHandler("setrewards", setrewards))
 application.add_handler(CommandHandler("rewards", rewards))
@@ -228,7 +234,6 @@ application.add_handler(CommandHandler("suara", suara))
 # ==============================================================
 #                       STARTUP WEBHOOK
 # ==============================================================
-
 @app.on_event("startup")
 async def startup():
     await bot.initialize()
@@ -239,7 +244,6 @@ async def startup():
 # ==============================================================
 #                       WEBHOOK RECEIVER
 # ==============================================================
-
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request):
     data = await request.json()
