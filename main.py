@@ -1,6 +1,5 @@
 import os
 import json
-import urllib.parse
 from fastapi import FastAPI, Request
 from telegram import Update, Bot
 from telegram.ext import (
@@ -9,20 +8,14 @@ from telegram.ext import (
 )
 from gtts import gTTS
 
-# -------------------- CONFIG ENV --------------------
+# -------------------- ENV --------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 WEBHOOK_DOMAIN = os.getenv("WEBHOOK_DOMAIN")
 
-if not BOT_TOKEN:
-    raise Exception("ENV BOT_TOKEN missing")
-if not WEBHOOK_DOMAIN:
-    raise Exception("ENV WEBHOOK_DOMAIN missing")
-
-ENCODED_TOKEN = urllib.parse.quote(BOT_TOKEN, safe="")
-WEBHOOK_PATH = f"/webhook/{ENCODED_TOKEN}"
+WEBHOOK_PATH = f"/webhook/{BOT_TOKEN}"
 WEBHOOK_URL = WEBHOOK_DOMAIN + WEBHOOK_PATH
 
-# -------------------- FASTAPI & TELEGRAM --------------------
+# -------------------- FASTAPI + TELEGRAM --------------------
 app = FastAPI()
 bot = Bot(BOT_TOKEN)
 application = Application.builder().token(BOT_TOKEN).build()
@@ -42,7 +35,7 @@ def save_db(data):
         json.dump(data, f, indent=4)
 
 # ==============================================================
-#                      TEXT TO SPEECH
+#                            TTS
 # ==============================================================
 
 async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -50,14 +43,10 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not msg:
         return
 
-    # Jika user me-reply pesan
     if msg.reply_to_message and msg.reply_to_message.text:
         text = msg.reply_to_message.text
-
-    # Jika user memasukkan argumen langsung /suara halo semua
     elif context.args:
         text = " ".join(context.args)
-
     else:
         return await msg.reply_text("💬 Reply pesan atau /suara <teks>")
 
@@ -71,7 +60,7 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
     os.remove(tts_path)
 
 # ==============================================================
-#                      REWARD & TASK COMMANDS
+#                        REWARD & TASK
 # ==============================================================
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -94,13 +83,13 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def setrewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "Kirim daftar reward kamu (format: Nama - poin)."
+        "Kirim daftar reward (format: Nama - poin)"
     )
     context.user_data["awaiting_rewards"] = True
 
 async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user = update.message.from_user
     text = update.message.text
+    user = update.message.from_user
     db = load_db()
 
     if context.user_data.get("awaiting_rewards"):
@@ -124,8 +113,7 @@ async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = load_db()
-    user = update.message.from_user
-    user_data = db.get(str(user.id))
+    user_data = db.get(str(update.message.from_user.id))
 
     if not user_data or not user_data["rewards"]:
         return await update.message.reply_text("Reward list kosong.")
@@ -138,9 +126,12 @@ async def rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def points(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = load_db()
-    user = update.message.from_user
-    pts = db[str(user.id)]["points"]
-    await update.message.reply_text(f"💰 Poin kamu: *{pts}*", parse_mode="Markdown")
+    pts = db[str(update.message.from_user.id)]["points"]
+
+    await update.message.reply_text(
+        f"💰 Poin kamu: *{pts}*",
+        parse_mode="Markdown"
+    )
 
 async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = load_db()
@@ -153,15 +144,18 @@ async def add(update: Update, context: ContextTypes.DEFAULT_TYPE):
     pts = int(context.args[-1])
 
     db[str(user.id)]["points"] += pts
-    db[str(user.id)]["history"].append(f"Selesai: {task_name} (+{pts})")
+    db[str(user.id)]["history"].append(
+        f"Selesai: {task_name} (+{pts})"
+    )
     save_db(db)
 
-    await update.message.reply_text(f"✔ Ditambahkan!\nTugas: {task_name}\nPoin: {pts}")
+    await update.message.reply_text(
+        f"✔ Ditambahkan!\nTugas: {task_name}\nPoin: {pts}"
+    )
 
 async def history(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = load_db()
-    user = update.message.from_user
-    hist = db[str(user.id)]["history"]
+    hist = db[str(update.message.from_user.id)]["history"]
 
     if not hist:
         return await update.message.reply_text("History kosong.")
@@ -203,7 +197,7 @@ async def helpcmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
         "/start - mulai\n"
         "/setrewards - isi reward\n"
-        "/rewards - lihat reward\n"
+        "/rewards - lihat daftar reward\n"
         "/points - lihat poin\n"
         "/add <tugas> <poin>\n"
         "/history - riwayat\n"
@@ -212,7 +206,7 @@ async def helpcmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 # ==============================================================
-#                      REGISTER HANDLERS
+#                      REGISTER HANDLER
 # ==============================================================
 
 application.add_handler(CommandHandler("start", start))
@@ -227,18 +221,24 @@ application.add_handler(CommandHandler("help", helpcmd))
 # TTS
 application.add_handler(CommandHandler("suara", suara))
 
-# Handler pesan bebas
+# Text biasa
 application.add_handler(MessageHandler(filters.TEXT, message_handler))
 
-# -------------------- STARTUP WEBHOOK --------------------
+# ==============================================================
+#                       STARTUP WEBHOOK (TTS STYLE)
+# ==============================================================
+
 @app.on_event("startup")
 async def startup():
     await bot.initialize()
     await application.initialize()
     await bot.set_webhook(WEBHOOK_URL)
-    print("Webhook aktif di:", WEBHOOK_URL)
+    print(f"✅ Webhook set to {WEBHOOK_URL}")
 
-# -------------------- WEBHOOK RECEIVER --------------------
+# ==============================================================
+#                       WEBHOOK RECEIVER
+# ==============================================================
+
 @app.post(WEBHOOK_PATH)
 async def webhook(request: Request):
     data = await request.json()
