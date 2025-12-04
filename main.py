@@ -82,34 +82,38 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def setrewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Kirim daftar reward (format: Nama - poin)"
-    )
-    context.user_data["awaiting_rewards"] = True
-
-async def message_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text
+
+    # Pisahkan baris pertama (perintah) dengan isi reward
+    lines = text.split("\n")[1:]  # semua baris setelah baris 1 = isi reward
+
+    if not lines:
+        return await update.message.reply_text(
+            "Kirim seperti ini:\n"
+            "/setrewards\n"
+            "snack kecil - 3\n"
+            "bingxue - 9\n"
+            "e-book - 18"
+        )
+
     user = update.message.from_user
     db = load_db()
 
-    if context.user_data.get("awaiting_rewards"):
-        lines = text.strip().split("\n")
-        rewards = []
+    rewards = []
+    for line in lines:
+        if "-" not in line:
+            continue
+        name, pts = line.split("-", 1)
+        rewards.append({
+            "name": name.strip(),
+            "points": int(pts.strip())
+        })
 
-        for line in lines:
-            if "-" not in line:
-                continue
-            name, pts = line.split("-", 1)
-            rewards.append({
-                "name": name.strip(),
-                "points": int(pts.strip())
-            })
+    db[str(user.id)]["rewards"] = rewards
+    save_db(db)
 
-        db[str(user.id)]["rewards"] = rewards
-        save_db(db)
-
-        context.user_data["awaiting_rewards"] = False
-        return await update.message.reply_text("Reward list berhasil disimpan!")
+    await update.message.reply_text("🎁 Reward list berhasil disimpan!")
+    
 
 async def rewards(update: Update, context: ContextTypes.DEFAULT_TYPE):
     db = load_db()
@@ -195,14 +199,19 @@ async def redeem(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def helpcmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "/start - mulai\n"
-        "/setrewards - isi reward\n"
+        "/start - mulai bot\n"
+        "/setrewards - set reward langsung dalam satu pesan.\n"
+        "   Contoh:\n"
+        "   /setrewards\n"
+        "   snack kecil - 3\n"
+        "   bingxue - 9\n"
+        "   e-book - 18\n\n"
         "/rewards - lihat daftar reward\n"
-        "/points - lihat poin\n"
-        "/add <tugas> <poin>\n"
-        "/history - riwayat\n"
-        "/redeem <no>\n"
-        "/suara <teks> - text to speech"
+        "/points - lihat jumlah poin\n"
+        "/add <tugas> <poin> - tambah poin\n"
+        "/history - lihat riwayat\n"
+        "/redeem <nomor> - tukarkan reward\n"
+        "/suara <teks> - ubah teks menjadi suara (TTS)"
     )
 
 # ==============================================================
