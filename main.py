@@ -6,7 +6,7 @@ from telegram.ext import (
     Application, CommandHandler, ContextTypes
 )
 from gtts import gTTS
-from langdetect import detect, DetectorFactory
+# from langdetect import detect, DetectorFactory
 
 DetectorFactory.seed = 0
 
@@ -49,15 +49,10 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif context.args:
         text = " ".join(context.args)
     else:
-        return await msg.reply_text("💬 Reply pesan atau /suara <teks>")
-
-    lang = detect(text)
-
-    if lang not in ['id', 'en']:
-        lang = 'en'
+        return await msg.reply_text("💬 /suara <teks>")
     
     tts_path = "/tmp/tts.mp3"
-    tts = gTTS(text=text, lang=lang)
+    tts = gTTS(text=text, lang='id')
     tts.save(tts_path)
 
     with open(tts_path, "rb") as f:
@@ -65,6 +60,26 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     os.remove(tts_path)
 
+async def voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    msg = update.message
+    if not msg:
+        return
+
+    if msg.reply_to_message and msg.reply_to_message.text:
+        text = msg.reply_to_message.text
+    elif context.args:
+        text = " ".join(context.args)
+    else:
+        return await msg.reply_text("💬 /voice <text>")
+    
+    tts_path = "/tmp/tts.mp3"
+    tts = gTTS(text=text, lang='en')
+    tts.save(tts_path)
+
+    with open(tts_path, "rb") as f:
+        await msg.reply_voice(f)
+
+    os.remove(tts_path)
 # ==============================================================
 #                        REWARD & TASK
 # ==============================================================
@@ -238,6 +253,7 @@ application.add_handler(CommandHandler("help", helpcmd))
 
 # TTS
 application.add_handler(CommandHandler("suara", suara))
+application.add_handler(CommandHandler("voice", voice))
 
 # ==============================================================
 #                       STARTUP WEBHOOK
