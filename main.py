@@ -6,6 +6,9 @@ from telegram.ext import (
     Application, CommandHandler, ContextTypes
 )
 from gtts import gTTS
+from langdetect import detect, DetectorFactory
+
+DetectorFactory.seed = 0
 
 # -------------------- ENV --------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
@@ -48,8 +51,13 @@ async def suara(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         return await msg.reply_text("💬 Reply pesan atau /suara <teks>")
 
+    lang = detect(text)
+
+    if lang not in ['id', 'en']:
+        lang = 'en'
+    
     tts_path = "/tmp/tts.mp3"
-    tts = gTTS(text=text, lang="id")
+    tts = gTTS(text=text, lang=lang)
     tts.save(tts_path)
 
     with open(tts_path, "rb") as f:
