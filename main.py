@@ -8,7 +8,7 @@ from telegram.ext import (
 from gtts import gTTS
 # from langdetect import detect, DetectorFactory
 
-DetectorFactory.seed = 0
+# DetectorFactory.seed = 0
 
 # -------------------- ENV --------------------
 BOT_TOKEN = os.getenv("BOT_TOKEN")
